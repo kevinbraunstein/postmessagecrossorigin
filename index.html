@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Parent Window (localhost)</title>
+    <title>Parent Window</title>
     <style>
         body { font-family: sans-serif; background: #f0f0f0; padding: 20px; }
         .log { background: #fff; border: 1px solid #ccc; padding: 10px; margin-top: 10px; white-space: pre-wrap; }
@@ -10,10 +10,10 @@
     </style>
 </head>
 <body>
-    <h2>Parent Window (Origin: localhost)</h2>
+    <h2>Parent Window</h2>
     <div id="status" class="log">Waiting for logs...</div>
 
-    <iframe id="childFrame" src="http://127.0.0.1:8000/child.html" width="500" height="300"></iframe>
+    <iframe id="childFrame" src="https://kevin-braunstein.github.io/postmessagecrossoriginchild/" width="500" height="300"></iframe>
 
     <script>
         const logBox = document.getElementById('status');
