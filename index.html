@@ -2,41 +2,43 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parent Frame</title>
+    <title>Parent Frame (Receiver)</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
-        .log-box { background: white; border: 1px solid #ccc; padding: 10px; height: 150px; overflow-y: scroll; margin-top: 10px; }
-        iframe { width: 100%; height: 400px; border: 2px solid #333; margin-top: 20px; }
+        body { font-family: monospace; padding: 20px; background: #f4f4f4; }
+        .log-box { background: #fff; border: 1px solid #999; padding: 10px; margin-bottom: 20px; min-height: 100px; }
+        .msg { margin: 5px 0; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+        .intercept { color: #d9534f; font-weight: bold; } /* Red for intercepts */
+        .success { color: #5cb85c; font-weight: bold; } /* Green for success */
+        .info { color: #0275d8; }
     </style>
 </head>
 <body>
-    <h1>Parent Frame</h1>
-    <p>Hosting child from: <code>kevin-braunstein.github.io</code></p>
-    
-    <h3>Messages Received from Child:</h3>
-    <div id="logger" class="log-box"></div>
 
-    <iframe src="https://kevin-braunstein.github.io/postmessagecrossoriginchild/" title="Child Frame"></iframe>
+    <h2>Parent Window</h2>
+    <p>Origin: <script>document.write(window.origin)</script></p>
+    
+    <div class="log-box" id="parentLog"><strong>Parent Log:</strong><br></div>
+
+    <iframe id="childFrame" 
+            src="https://kevin-braunstein.github.io/postmessagecrossoriginchild/" 
+            width="600" height="400"
+            style="border: 2px solid #333;">
+    </iframe>
 
     <script>
-        const logger = document.getElementById('logger');
-
-        function log(msg) {
+        const logger = document.getElementById('parentLog');
+        function log(text, type = "") {
             const div = document.createElement('div');
-            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            div.style.borderBottom = "1px solid #eee";
+            div.className = "msg " + type;
+            div.innerHTML = `[Parent] ${text}`;
             logger.appendChild(div);
-            logger.scrollTop = logger.scrollHeight;
         }
 
-        // Listen for messages from the iframe
-        window.addEventListener("message", (event) => {
-            // Security check: ensure it comes from the expected origin
-            if (event.origin !== "https://kevin-braunstein.github.io") return;
-            
-            log(`RECEIVED: ${JSON.stringify(event.data)}`);
-        });
-    </script>
-</body>
-</html>
+        // --- 1. OVERRIDE postMessage on PARENT ---
+        try {
+            window.__defineGetter__("postMessage", function() {
+                return function(msg, origin) {
+                    log("INTERCEPTED: A script tried to call postMessage on the Parent window directly!", "intercept");
+                }
+            });
+            log("Locally overrode window
