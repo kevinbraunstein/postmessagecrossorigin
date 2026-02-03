@@ -2,43 +2,102 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Parent Frame (Receiver)</title>
+    <title>Parent Window (Target)</title>
     <style>
-        body { font-family: monospace; padding: 20px; background: #f4f4f4; }
-        .log-box { background: #fff; border: 1px solid #999; padding: 10px; margin-bottom: 20px; min-height: 100px; }
-        .msg { margin: 5px 0; border-bottom: 1px solid #eee; padding-bottom: 2px; }
-        .intercept { color: #d9534f; font-weight: bold; } /* Red for intercepts */
-        .success { color: #5cb85c; font-weight: bold; } /* Green for success */
-        .info { color: #0275d8; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f0f2f5; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        
+        .step-box { border: 1px solid #ccc; padding: 15px; margin: 15px 0; border-radius: 4px; background: #fafafa; }
+        .step-title { font-weight: bold; color: #555; margin-bottom: 10px; display: block; text-transform: uppercase; font-size: 0.85em; }
+        
+        button { cursor: pointer; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .log-display { background: #222; color: #0f0; font-family: monospace; padding: 10px; border-radius: 4px; margin-top: 10px; min-height: 40px; white-space: pre-wrap; }
+        .log-intercept { color: #ff4444; } /* Red for intercepts */
+        
+        iframe { width: 100%; height: 350px; border: 2px solid #333; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <h2>Parent Window</h2>
-    <p>Origin: <script>document.write(window.origin)</script></p>
-    
-    <div class="log-box" id="parentLog"><strong>Parent Log:</strong><br></div>
+<div class="container">
+    <h2>Parent Window (Target)</h2>
+    <div><strong>Origin:</strong> <script>document.write(window.origin)</script></div>
 
-    <iframe id="childFrame" 
-            src="https://kevin-braunstein.github.io/postmessagecrossoriginchild/" 
-            width="600" height="400"
-            style="border: 2px solid #333;">
-    </iframe>
+    <div class="step-box">
+        <span class="step-title">Step 1: Setup Local Override</span>
+        <p>Override <code>window.postMessage</code> on this page using <code>__defineGetter__</code>.</p>
+        <button id="btnOverride" onclick="applyOverride()">Apply Override</button>
+        <div id="statusOverride" style="margin-top: 5px; font-style: italic; color: #666;">Status: Native Implementation</div>
+    </div>
 
-    <script>
-        const logger = document.getElementById('parentLog');
-        function log(text, type = "") {
-            const div = document.createElement('div');
-            div.className = "msg " + type;
-            div.innerHTML = `[Parent] ${text}`;
-            logger.appendChild(div);
-        }
+    <div class="step-box">
+        <span class="step-title">Step 2: Verify Local Consistency</span>
+        <p>Test the override by sending a message to <b>ourselves</b> (Same-Origin).</p>
+        <button id="btnLocalTest" onclick="testLocal()" disabled>Test Local Call</button>
+        <div id="logLocal" class="log-display">Waiting for test...</div>
+    </div>
 
-        // --- 1. OVERRIDE postMessage on PARENT ---
+    <div class="step-box">
+        <span class="step-title">Step 5: Monitor Cross-Origin Traffic</span>
+        <p>The iframe below will attempt to send us a message. Watch the log below.</p>
+        <div id="logCross" class="log-display">Waiting for incoming message...</div>
+    </div>
+
+    <iframe src="https://kevin-braunstein.github.io/postmessagecrossoriginchild/"></iframe>
+</div>
+
+<script>
+    const logLocal = document.getElementById('logLocal');
+    const logCross = document.getElementById('logCross');
+    const btnOverride = document.getElementById('btnOverride');
+    const btnLocalTest = document.getElementById('btnLocalTest');
+
+    function applyOverride() {
         try {
+            // THE OVERRIDE
             window.__defineGetter__("postMessage", function() {
-                return function(msg, origin) {
-                    log("INTERCEPTED: A script tried to call postMessage on the Parent window directly!", "intercept");
+                return function(msg, target) {
+                    // This function runs if the override is successful
+                    if (target === "*") { 
+                        // It's a cross-origin attempt
+                        logCross.innerHTML = "<span class='log-intercept'>[INTERCEPTED] The override blocked the incoming message! Security Failed.</span>";
+                    } else {
+                        // It's a local test
+                        logLocal.innerHTML = "<span class='log-intercept'>[INTERCEPTED] Local override caught the call successfully.</span>";
+                    }
                 }
             });
-            log("Locally overrode window
+
+            document.getElementById('statusOverride').innerHTML = "Status: <b>Overridden (Intercept Active)</b>";
+            document.getElementById('statusOverride').style.color = "#d9534f";
+            btnOverride.disabled = true;
+            btnLocalTest.disabled = false;
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    function testLocal() {
+        // This calls window.postMessage on SELF. 
+        // Since we are same-origin, the override SHOULD trigger.
+        window.postMessage("Test", "Wait");
+    }
+
+    // REAL EVENT LISTENER
+    // If the browser bypasses our override (as per spec), this listener will fire.
+    window.addEventListener("message", (event) => {
+        // Filter out our own local test
+        if(event.source === window) return;
+
+        logCross.innerHTML = `[SUCCESS] Message Received: "${event.data}"\n` +
+                             `Origin: ${event.origin}\n` +
+                             `Analysis: The browser BYPASSED our override and delivered the message safely.`;
+    });
+</script>
+
+</body>
+</html>
