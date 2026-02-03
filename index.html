@@ -1,57 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Parent Window</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Frame</title>
     <style>
-        body { font-family: sans-serif; background: #f0f0f0; padding: 20px; }
-        .log { background: #fff; border: 1px solid #ccc; padding: 10px; margin-top: 10px; white-space: pre-wrap; }
-        .hacked { color: red; font-weight: bold; }
-        .secure { color: green; font-weight: bold; }
+        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+        .log-box { background: white; border: 1px solid #ccc; padding: 10px; height: 150px; overflow-y: scroll; margin-top: 10px; }
+        iframe { width: 100%; height: 400px; border: 2px solid #333; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h2>Parent Window</h2>
-    <div id="status" class="log">Waiting for logs...</div>
+    <h1>Parent Frame</h1>
+    <p>Hosting child from: <code>kevin-braunstein.github.io</code></p>
+    
+    <h3>Messages Received from Child:</h3>
+    <div id="logger" class="log-box"></div>
 
-    <iframe id="childFrame" src="https://kevin-braunstein.github.io/postmessagecrossoriginchild/" width="500" height="300"></iframe>
+    <iframe src="https://kevin-braunstein.github.io/postmessagecrossoriginchild/" title="Child Frame"></iframe>
 
     <script>
-        const logBox = document.getElementById('status');
-        function log(msg, type) {
-            const span = document.createElement('div');
-            span.innerHTML = msg;
-            if(type) span.className = type;
-            logBox.appendChild(span);
+        const logger = document.getElementById('logger');
+
+        function log(msg) {
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            div.style.borderBottom = "1px solid #eee";
+            logger.appendChild(div);
+            logger.scrollTop = logger.scrollHeight;
         }
 
-        // --- STEP 1: Override postMessage on Parent ---
-        // We use __defineGetter__ as requested to simulate the legacy/hack attempt
-        try {
-            window.__defineGetter__("postMessage", function() {
-                return function() {
-                    console.log("PARENT INTERCEPT: Someone tried to postMessage to me!");
-                    alert("PARENT HACKED: postMessage was intercepted on the Parent!");
-                }
-            });
-            log("1. Parent local override active. (window.postMessage is now hacked)", "hacked");
-        } catch (e) {
-            log("Failed to override: " + e.message);
-        }
-
-        // --- STEP 2: Listen for messages from Child ---
+        // Listen for messages from the iframe
         window.addEventListener("message", (event) => {
-            log(`4. Parent received message: "${event.data}"`, "secure");
-            log("   (If you see this, the Parent's override was BYPASSED by the browser)", "secure");
+            // Security check: ensure it comes from the expected origin
+            if (event.origin !== "https://kevin-braunstein.github.io") return;
+            
+            log(`RECEIVED: ${JSON.stringify(event.data)}`);
         });
-
-        // --- STEP 3: Send message to Child (Cross-Origin) ---
-        const iframe = document.getElementById('childFrame');
-        iframe.onload = function() {
-            log("2. Sending message to Child Iframe...", "secure");
-            // If the Child's override worked cross-origin, this would fail or alert.
-            // If the browser enforces security, this sends normally.
-            iframe.contentWindow.postMessage("Hello from Parent", "*");
-        };
     </script>
 </body>
 </html>
